@@ -10,6 +10,7 @@ import ErrorHandler from "../utils/utility-class";
 import { rm } from "fs";
 import { myCache } from "../app";
 import { invalidateCache } from "../utils/features";
+import { cloudinaryUpload } from "../utils/fileUpload";
 // import { faker } from "@faker-js/faker";
 
 const getAllProducts = tryCatch(
@@ -172,9 +173,7 @@ const newProduct = tryCatch(
     next: NextFunction
   ) => {
     const { name, price, stock, category } = req.body;
-    const photo = req.file;
-
-    if (!photo) return next(new ErrorHandler("Please add a photo", 404));
+    const photo = req.file!;
 
     if (!name || !price || !stock || !category) {
       rm(photo.path, () => {
@@ -184,12 +183,22 @@ const newProduct = tryCatch(
       return next(new ErrorHandler("One of the fields is missing", 404));
     }
 
+    //try
+    const photoPath: string = photo?.path;
+
+    if (!photoPath) return next(new ErrorHandler("Please add a photo", 404));
+
+    const cloudinaryPhoto = await cloudinaryUpload(photoPath);
+
+    if (!cloudinaryPhoto)
+      return next(new ErrorHandler("Please add a photo, cloudinary", 404));
+
     await Product.create({
       name,
       price,
       stock,
       category: category.toLowerCase(),
-      photo: photo.path,
+      photo: cloudinaryPhoto?.url || "",
     });
 
     invalidateCache({ product: true, admin: true });
